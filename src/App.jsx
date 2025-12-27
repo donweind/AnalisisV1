@@ -9,7 +9,7 @@ import {
   FileText, Clock, AlertOctagon, Hash, Lock, Key, ClipboardList, Shield, Eye, LogOut, User,
   Palette, Layout, ChevronRight, ArrowRight, Sun, Moon, Coffee, Leaf, Filter, TrendingUp, 
   PieChart as PieIcon, FileSpreadsheet, Wand2, Droplet, Anchor, Wind, Mountain, Edit3, Undo2,
-  MousePointerClick, AlertCircle
+  MousePointerClick, AlertCircle, Calendar, MessageSquare
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN FIJA ---
@@ -68,6 +68,13 @@ const generateUUID = () => {
   return typeof crypto !== 'undefined' && crypto.randomUUID 
     ? crypto.randomUUID() 
     : Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
+
+// --- UTILIDAD: FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YY) ---
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const [year, month, day] = dateString.split('-');
+  return `${day}/${month}/${year.slice(2)}`;
 };
 
 // --- COMPONENTE DASHBOARD AVANZADO ---
@@ -136,21 +143,28 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
     });
   }, [filteredData, totalItems]);
 
-  // Helper para color de estado en tabla
   const getStatusBadgeClass = (status) => {
     switch(status) {
       case 'EJECUTADO': return 'bg-green-50 text-green-600';
       case 'ATRASADO': return 'bg-red-50 text-red-600';
       case 'PENDIENTE': return 'bg-slate-100 text-slate-600';
-      default: return 'bg-blue-50 text-blue-600'; // EN PROCESO
+      default: return 'bg-blue-50 text-blue-600';
+    }
+  };
+
+  const handleChartClick = (data) => {
+    if (data && data.activeLabel) {
+      setFilterZone(data.activeLabel);
+    } else if (data && data.name) {
+      setFilterZone(data.name);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-slate-100 z-50 flex flex-col overflow-hidden animate-fade-in text-slate-800">
       <div className="bg-white p-4 border-b border-slate-200 flex justify-between items-center shadow-sm">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <BarChart2 className="text-blue-600"/> Dashboard Gerencial de Riesgos
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 uppercase">
+          <BarChart2 className="text-blue-600"/> LUGARES DE DIFICIL ACCESO Y FUENTES DE CONTAMINACION MP1 - CAÑETE
         </h2>
         <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
           <X size={24}/>
@@ -158,7 +172,6 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Filtros */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2 text-slate-500 text-sm font-bold uppercase mr-4">
             <Filter size={16}/> Filtros Activos:
@@ -178,48 +191,61 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
           <div className="ml-auto text-xs text-slate-400">Mostrando {totalItems} registros</div>
         </div>
 
-        {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-            <div className="text-slate-400 text-xs font-bold uppercase mb-1">Total Riesgos</div>
-            <div className="text-3xl font-bold text-slate-800">{totalItems}</div>
+          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-500 hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Activity size={64} className="text-blue-500"/>
+            </div>
+            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider">LDA Y FC TOTALES</div>
+            <div className="text-4xl font-black text-slate-800">{totalItems}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-[#86efac]">
-            <div className="text-slate-400 text-xs font-bold uppercase mb-1">Total LDA</div>
-            <div className="text-3xl font-bold text-slate-800">{totalLDA}</div>
+
+          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-[#86efac] hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <MapPin size={64} className="text-green-500"/>
+            </div>
+            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider">Total LDA</div>
+            <div className="text-4xl font-black text-slate-800">{totalLDA}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-[#fef08a]">
-            <div className="text-slate-400 text-xs font-bold uppercase mb-1">Total FC</div>
-            <div className="text-3xl font-bold text-slate-800">{totalFC}</div>
+
+          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-[#fef08a] hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <AlertCircle size={64} className="text-yellow-500"/>
+            </div>
+            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider">Total FC</div>
+            <div className="text-4xl font-black text-slate-800">{totalFC}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-            <div className="text-slate-400 text-xs font-bold uppercase mb-1">% Global Ejecutado</div>
-            <div className="text-3xl font-bold text-slate-800">{percentEjecutado}%</div>
-            <div className="w-full bg-slate-100 h-1 mt-2 rounded-full overflow-hidden">
+
+          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-green-500 hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <CheckCircle size={64} className="text-green-500"/>
+            </div>
+            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider">% Global Ejecutado</div>
+            <div className="text-4xl font-black text-slate-800">{percentEjecutado}%</div>
+            <div className="w-full bg-slate-100 h-1.5 mt-2 rounded-full overflow-hidden">
               <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${percentEjecutado}%` }}></div>
             </div>
           </div>
         </div>
 
-        {/* Gráficos */}
         <div className="mb-6">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Avance por Criticidad</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-red-100">
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-red-100 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-end mb-2">
                 <div><span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded uppercase">Criticidad A</span><div className="text-2xl font-bold text-slate-800 mt-2">{statsA.pct}%</div></div>
                 <div className="text-right text-xs text-slate-400">{statsA.exec} / {statsA.total} resueltos</div>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div className="bg-red-500 h-full rounded-full transition-all duration-1000" style={{ width: `${statsA.pct}%` }}></div></div>
             </div>
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-orange-100">
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-orange-100 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-end mb-2">
                 <div><span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded uppercase">Criticidad B</span><div className="text-2xl font-bold text-slate-800 mt-2">{statsB.pct}%</div></div>
                 <div className="text-right text-xs text-slate-400">{statsB.exec} / {statsB.total} resueltos</div>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div className="bg-orange-500 h-full rounded-full transition-all duration-1000" style={{ width: `${statsB.pct}%` }}></div></div>
             </div>
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-green-100">
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-green-100 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-end mb-2">
                 <div><span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded uppercase">Criticidad C</span><div className="text-2xl font-bold text-slate-800 mt-2">{statsC.pct}%</div></div>
                 <div className="text-right text-xs text-slate-400">{statsC.exec} / {statsC.total} resueltos</div>
@@ -231,14 +257,17 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><MapPin size={16}/> Distribución por Zona</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-slate-700 flex items-center gap-2"><MapPin size={16}/> Distribución por Zona</h3>
+              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded">Clic en barras para filtrar</span>
+            </div>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={zoneChartData}>
+                <BarChart data={zoneChartData} onClick={handleChartClick} style={{cursor: 'pointer'}}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                   <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false}/>
                   <YAxis fontSize={12} axisLine={false} tickLine={false}/>
-                  <Tooltip cursor={{fill: 'transparent'}}/>
+                  <Tooltip cursor={{fill: 'rgba(0,0,0,0.05)'}}/>
                   <Legend />
                   <Bar dataKey="LDA" stackId="a" fill="#86efac" name="LDA" radius={[0,0,4,4]}/>
                   <Bar dataKey="FC" stackId="a" fill="#fef08a" name="FC" radius={[4,4,0,0]}/>
@@ -266,10 +295,30 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
           </div>
         </div>
 
-        {/* Tabla Drilldown */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
+          <div className="flex justify-between items-center mb-4">
+             <h3 className="font-bold text-slate-700 flex items-center gap-2"><TrendingUp size={16}/> Diagrama de Pareto (Frecuencia por Zona)</h3>
+             <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded">Clic para filtrar detalles</span>
+          </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={paretoData} onClick={handleChartClick} style={{cursor: 'pointer'}}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+                <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" unit="%" domain={[0, 100]}/>
+                <Tooltip />
+                <Legend />
+                <Bar yAxisId="left" dataKey="count" fill="#413ea0" barSize={40} name="Cantidad" radius={[4,4,0,0]} />
+                <Line yAxisId="right" type="monotone" dataKey="accumPct" stroke="#ff7300" strokeWidth={3} dot={{r:4}} name="% Acumulado" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="font-bold text-slate-700 flex items-center gap-2"><List size={16}/> Detalle de Registros Filtrados</h3>
+            <h3 className="font-bold text-slate-700 flex items-center gap-2"><List size={16}/> DETALLES FILTRADOS</h3>
             {!isAdmin && <span className="text-xs text-slate-400 flex items-center gap-1"><Lock size={10}/> Vista Solo Lectura</span>}
           </div>
           <div className="overflow-x-auto">
@@ -280,6 +329,8 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
                   <th className="px-4 py-3">Zona</th>
                   <th className="px-4 py-3">Criticidad</th>
                   <th className="px-4 py-3">Descripción</th>
+                  <th className="px-4 py-3">Documento</th>
+                  <th className="px-4 py-3">F. Cierre</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
@@ -299,6 +350,18 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
                       </span>
                     </td>
                     <td className="px-4 py-3 max-w-md truncate text-slate-600" title={item.desc}>{item.desc}</td>
+                    <td className="px-4 py-3 text-xs font-mono">
+                       {item.documento !== 'SIN DOC' ? (
+                         <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200">
+                           {item.documento} {item.codigoDoc ? ` - ${item.codigoDoc}` : ''}
+                         </span>
+                       ) : (
+                         <span className="text-slate-300">-</span>
+                       )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      {formatDate(item.fechaCierre) || '-'}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-bold px-2 py-1 rounded ${getStatusBadgeClass(item.estado)}`}>
                         {item.estado}
@@ -409,7 +472,9 @@ export default function App() {
       criticidad: 'B',
       estado: 'EN PROCESO',
       documento: 'SIN DOC',
-      codigoDoc: ''
+      codigoDoc: '',
+      fechaCierre: '',
+      observaciones: ''
     });
   };
 
@@ -448,7 +513,7 @@ export default function App() {
         codigoDoc: newItem.documento === 'SIN DOC' ? '' : newItem.codigoDoc
       };
       setData(prev => [...prev, itemToAdd]);
-      setNewItem(prev => ({ ...prev, desc: '', codigoDoc: '' })); 
+      setNewItem(prev => ({ ...prev, desc: '', codigoDoc: '', fechaCierre: '', observaciones: '' })); 
       showNotification(`✅ Registro agregado`);
     }
   };
@@ -463,7 +528,9 @@ export default function App() {
       criticidad: item.criticidad || 'B',
       estado: item.estado || 'EN PROCESO',
       documento: item.documento || 'SIN DOC',
-      codigoDoc: item.codigoDoc || ''
+      codigoDoc: item.codigoDoc || '',
+      fechaCierre: item.fechaCierre || '',
+      observaciones: item.observaciones || ''
     });
     setActiveTab(item.zona);
   };
@@ -514,7 +581,6 @@ export default function App() {
     const newItems = [];
     let count = 0;
     
-    // Regex mejorado para soportar Criticidad opcional (A/B/C)
     const regex = /^(LDA|FC)[\s\-\.]*(\d+)(?:[\s\-\.:]+([ABC])(?=[\s\-\.:]|$))?[\s\-\.:]*(.+)/i;
 
     lines.forEach(line => {
@@ -529,7 +595,9 @@ export default function App() {
           criticidad: match[3] ? match[3].toUpperCase() : 'B', // Grupo 3 es criticidad opcional
           estado: 'EN PROCESO', 
           documento: 'SIN DOC', 
-          codigoDoc: ''
+          codigoDoc: '',
+          fechaCierre: '',
+          observaciones: ''
         });
         count++;
       }
@@ -558,7 +626,9 @@ export default function App() {
       'Criticidad': item.criticidad,
       'Estado': item.estado,
       'Documento': item.documento,
-      'Cód. Doc': item.codigoDoc
+      'Cód. Doc': item.codigoDoc,
+      'F. Cierre': formatDate(item.fechaCierre),
+      'Observaciones': item.observaciones
     }));
 
     const ws = window.XLSX.utils.json_to_sheet(excelData);
@@ -941,19 +1011,27 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Nuevos Campos en Formulario: Fecha y Observaciones */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Documentación</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Cierre / Detalles</label>
                 <div className="grid grid-cols-2 gap-2">
+                  <input type="date" className="text-xs border rounded p-2 bg-white/80"
+                    value={newItem.fechaCierre || ''} onChange={e => setNewItem({...newItem, fechaCierre: e.target.value})}/>
                   <select className="text-xs border rounded p-2 bg-white/80" value={newItem.documento} onChange={e => setNewItem({...newItem, documento: e.target.value})}>
                     {DOC_OPTS.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
-                  <input type="text" className={`text-xs border rounded p-2 ${newItem.documento === 'SIN DOC' ? 'opacity-50 bg-slate-100' : 'bg-white/80'}`}
-                    placeholder="Código..." disabled={newItem.documento === 'SIN DOC'} value={newItem.codigoDoc} onChange={e => setNewItem({...newItem, codigoDoc: e.target.value})}/>
                 </div>
+                <input type="text" className={`w-full text-xs border rounded p-2 ${newItem.documento === 'SIN DOC' ? 'opacity-50 bg-slate-100' : 'bg-white/80'}`}
+                    placeholder="Código documento..." disabled={newItem.documento === 'SIN DOC'} value={newItem.codigoDoc} onChange={e => setNewItem({...newItem, codigoDoc: e.target.value})}/>
+                <textarea className="w-full text-xs border rounded p-2 h-16 bg-white/80 resize-none focus:ring-1 focus:ring-blue-500 outline-none mt-2" 
+                  placeholder="Observaciones de cierre o detalles adicionales..." value={newItem.observaciones || ''} onChange={e => setNewItem({...newItem, observaciones: e.target.value})}/>
               </div>
 
-              <textarea className="w-full text-sm border rounded p-3 h-24 bg-white/80 resize-none focus:ring-1 focus:ring-blue-500 outline-none" 
-                placeholder="Descripción del hallazgo..." value={newItem.desc} onChange={e => setNewItem({...newItem, desc: e.target.value})}/>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Descripción Principal</label>
+                <textarea className="w-full text-sm border rounded p-3 h-24 bg-white/80 resize-none focus:ring-1 focus:ring-blue-500 outline-none" 
+                  placeholder="Descripción del hallazgo..." value={newItem.desc} onChange={e => setNewItem({...newItem, desc: e.target.value})}/>
+              </div>
               
               <button type="submit" className={`w-full text-white font-bold py-3 rounded-lg text-sm transition-colors ${editingItemUuid ? 'bg-yellow-600 hover:bg-yellow-700 shadow-yellow-200' : 'bg-slate-900 hover:bg-black'}`}>
                 {editingItemUuid ? 'Actualizar Registro' : 'Guardar Registro'}
@@ -1054,14 +1132,24 @@ export default function App() {
   );
 }
 
-// --- TARJETA INDIVIDUAL ---
+// --- TARJETA INDIVIDUAL (INTERACTIVA) ---
 const Card = ({ item, isAdmin, onRequestDelete, onEditStart }) => {
+  const [expanded, setExpanded] = useState(false);
   const colorClass = item.tipo === 'LDA' ? 'bg-[#86efac] text-black border-[#4ade80]' : 'bg-[#fef08a] text-black border-[#facc15]';
   
+  // Manejador de clic principal para expandir/colapsar
+  const handleCardClick = () => {
+    // Si es admin, no expandimos con clic simple si queremos que doble clic edite.
+    // Pero el requerimiento dice: "PERO ESTAS EN EL MODO DE VOSULAIZACION SE DESPELGARAN CUANDO SE HAGA CLICK"
+    // Podemos permitir expandir siempre con clic simple.
+    setExpanded(!expanded);
+  };
+
   return (
     <div 
-      className="group relative bg-white/80 backdrop-blur-sm border border-black/5 rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:border-black/10 cursor-pointer"
-      onDoubleClick={() => isAdmin && onEditStart(item)}
+      className={`group relative bg-white/80 backdrop-blur-sm border border-black/5 rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:border-black/10 cursor-pointer ${expanded ? 'shadow-lg ring-1 ring-black/5' : ''}`}
+      onClick={handleCardClick}
+      onDoubleClick={(e) => { e.stopPropagation(); isAdmin && onEditStart(item); }}
     >
       <div className="flex gap-4 items-start">
         <div className="flex flex-col items-center gap-1 min-w-[3rem]">
@@ -1074,9 +1162,6 @@ const Card = ({ item, isAdmin, onRequestDelete, onEditStart }) => {
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
-            {item.zona}
-          </div>
           <div className="flex flex-wrap gap-2 mb-2 items-center">
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${
               item.estado === 'ATRASADO' ? 'text-red-500 bg-red-50' : 
@@ -1092,11 +1177,32 @@ const Card = ({ item, isAdmin, onRequestDelete, onEditStart }) => {
               </span>
             )}
           </div>
-          <p className="text-sm text-slate-600 leading-relaxed" title={isAdmin ? "Doble clic para editar" : ""}>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
             {item.desc}
           </p>
         </div>
       </div>
+
+      {/* SECCIÓN DESPLEGABLE */}
+      {expanded && (
+        <div className="mt-4 pt-3 border-t border-slate-100 animate-fade-in">
+           <div className="grid grid-cols-2 gap-4 text-xs text-slate-500 mb-2">
+              <div className="flex items-center gap-2">
+                 <Calendar size={12} className="text-slate-400"/> 
+                 <span className="font-bold">Cierre:</span> {formatDate(item.fechaCierre) || 'No definida'}
+              </div>
+           </div>
+           {item.observaciones && (
+             <div className="bg-slate-50 p-2 rounded text-xs text-slate-600 italic border border-slate-100 flex gap-2">
+                <MessageSquare size={12} className="mt-0.5 text-slate-400 flex-shrink-0"/>
+                {item.observaciones}
+             </div>
+           )}
+           {!item.observaciones && !item.fechaCierre && (
+             <div className="text-center text-[10px] text-slate-300 italic py-1">Sin detalles adicionales</div>
+           )}
+        </div>
+      )}
       
       {isAdmin && (
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">

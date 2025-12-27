@@ -77,6 +77,22 @@ const formatDate = (dateString) => {
   return `${day}/${month}/${year.slice(2)}`;
 };
 
+// --- UTILIDAD: PARSEAR FECHA IMPORTACION (DD/MM/YY a YYYY-MM-DD) ---
+const parseImportDate = (dateStr) => {
+  if (!dateStr) return '';
+  // Limpiar espacios y dividir
+  const parts = dateStr.trim().split('/');
+  if (parts.length === 3) {
+    const d = parts[0].padStart(2, '0');
+    const m = parts[1].padStart(2, '0');
+    let y = parts[2];
+    // Asumir siglo 2000 si solo tiene 2 dígitos
+    if (y.length === 2) y = '20' + y;
+    return `${y}-${m}-${d}`;
+  }
+  return '';
+};
+
 // --- COMPONENTE DASHBOARD AVANZADO ---
 const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStart }) => {
   const [filterZone, setFilterZone] = useState('TODAS');
@@ -351,13 +367,13 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
                     </td>
                     <td className="px-4 py-3 max-w-md truncate text-slate-600" title={item.desc}>{item.desc}</td>
                     <td className="px-4 py-3 text-xs font-mono">
-                       {item.documento !== 'SIN DOC' ? (
-                         <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200">
-                           {item.documento} {item.codigoDoc ? ` - ${item.codigoDoc}` : ''}
-                         </span>
-                       ) : (
-                         <span className="text-slate-300">-</span>
-                       )}
+                        {item.documento !== 'SIN DOC' ? (
+                          <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200">
+                            {item.documento} {item.codigoDoc ? ` - ${item.codigoDoc}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
                       {formatDate(item.fechaCierre) || '-'}
@@ -581,34 +597,65 @@ export default function App() {
     const newItems = [];
     let count = 0;
     
-    const regex = /^(LDA|FC)[\s\-\.]*(\d+)(?:[\s\-\.:]+([ABC])(?=[\s\-\.:]|$))?[\s\-\.:]*(.+)/i;
-
+    // FORMATO ESPERADO: CODIGO - DESCRIPCION - CRITICIDAD - F. CIERRE - ESTADO - TIPO DOC - CODIGO DOC - OBSERVACIONES
     lines.forEach(line => {
-      const match = line.trim().match(regex);
-      if (match) {
-        newItems.push({
-          uuid: generateUUID(),
-          id: parseInt(match[2], 10),
-          zona: bulkZone,
-          tipo: match[1].toUpperCase(),
-          desc: match[4].trim(), // Grupo 4 es descripcion
-          criticidad: match[3] ? match[3].toUpperCase() : 'B', // Grupo 3 es criticidad opcional
-          estado: 'EN PROCESO', 
-          documento: 'SIN DOC', 
-          codigoDoc: '',
-          fechaCierre: '',
-          observaciones: ''
-        });
-        count++;
+      if (!line.trim()) return;
+      
+      // Intentar dividir por TAB (Excel copy) o por " - " (Separador visual personalizado)
+      let parts = line.split('\t');
+      if (parts.length < 2) {
+         // Si no hay tabs, usar el separador de guion con espacios
+         parts = line.split(' - ');
+      }
+      
+      // Limpiar espacios extra
+      parts = parts.map(p => p ? p.trim() : '');
+
+      // Necesitamos al menos el código para procesar
+      if (parts.length > 0) {
+        const codigoRaw = parts[0] || ''; 
+        // Parsear Código: LDA 1 -> Tipo: LDA, ID: 1
+        const codeMatch = codigoRaw.match(/^(LDA|FC)[\s\-\.]*(\d+)/i);
+        
+        if (codeMatch) {
+           // Mapeo de campos basado en índice
+           // 0: Código, 1: Desc, 2: Crit, 3: Fecha, 4: Estado, 5: Doc, 6: CodDoc, 7: Obs
+           
+           const tipo = codeMatch[1].toUpperCase();
+           const id = parseInt(codeMatch[2], 10);
+           const desc = parts[1] || '';
+           const criticidad = parts[2] ? parts[2].toUpperCase() : 'B';
+           const fechaCierre = parseImportDate(parts[3]); // Convierte DD/MM/YY a YYYY-MM-DD
+           const estado = parts[4] ? parts[4].toUpperCase() : 'EN PROCESO';
+           const documento = parts[5] ? parts[5].toUpperCase() : 'SIN DOC';
+           const codigoDoc = parts[6] || '';
+           const observaciones = parts[7] || '';
+
+           newItems.push({
+             uuid: generateUUID(),
+             id,
+             zona: bulkZone,
+             tipo,
+             desc,
+             criticidad: ['A','B','C'].includes(criticidad) ? criticidad : 'B',
+             estado: ESTADO_OPTS.includes(estado) ? estado : 'EN PROCESO',
+             documento: DOC_OPTS.includes(documento) ? documento : 'SIN DOC',
+             codigoDoc,
+             fechaCierre,
+             observaciones
+           });
+           count++;
+        }
       }
     });
+
     if (count > 0) {
       setData(prev => [...prev, ...newItems]);
       showNotification(`✅ ${count} importados`);
       setBulkText('');
       setShowBulkModal(false);
     } else {
-      showNotification("⚠️ Formato inválido. Ej: 'LDA 1 A Fuga de aire'", "error");
+      showNotification("⚠️ Formato inválido. Revise la guía.", "error");
     }
   };
 
@@ -618,16 +665,16 @@ export default function App() {
       alert("Librería Excel no cargada aún. Intenta en unos segundos.");
       return;
     }
-    // Mapeo para combinar Tipo y ID en una sola columna y nombres amigables
+    // Mapeo exacto solicitado: ZONA - Código - Descripción - Criticidad - F. Cierre - Estado - Documento - Cód. Doc - Observaciones
     const excelData = data.map(item => ({
+      'ZONA': item.zona,
       'Código': `${item.tipo} ${item.id}`,
-      'Zona': item.zona,
       'Descripción': item.desc,
       'Criticidad': item.criticidad,
+      'F. Cierre': formatDate(item.fechaCierre), // Formato DD/MM/YY
       'Estado': item.estado,
       'Documento': item.documento,
       'Cód. Doc': item.codigoDoc,
-      'F. Cierre': formatDate(item.fechaCierre),
       'Observaciones': item.observaciones
     }));
 
@@ -905,8 +952,11 @@ export default function App() {
                 {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
               </select>
             </div>
-            <textarea className="w-full h-64 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" 
-              placeholder={`LDA 01 A Descripción...\nFC 02 B Fuga de aceite...`} value={bulkText} onChange={(e) => setBulkText(e.target.value)} />
+            <div className="text-[10px] text-slate-500 mb-2 font-mono bg-slate-100 p-2 rounded border">
+              FORMATO: CODIGO - DESCRIPCION - CRITICIDAD - F. CIERRE - ESTADO - TIPO DOC - CODIGO DOC - OBSERVACIONES
+            </div>
+            <textarea className="w-full h-64 p-3 border rounded font-mono text-xs resize-none focus:ring-2 focus:ring-blue-500 outline-none" 
+              placeholder={`LDA 1 - Bandeja de goma centro - A - 25/04/25 - EJECUTADO - LILA - LILA-FA-MP-006 - Acceso limitado por ubicación y equipo en proceso.`} value={bulkText} onChange={(e) => setBulkText(e.target.value)} />
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setShowBulkModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded">Cancelar</button>
               <button onClick={processBulkText} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Procesar</button>

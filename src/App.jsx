@@ -71,17 +71,35 @@ const generateUUID = () => {
 };
 
 // --- UTILIDAD: FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YY) ---
+// CORREGIDO: Más robusto para evitar errores si el dato no es string
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  const [year, month, day] = dateString.split('-');
+  
+  // Aseguramos que sea string
+  const str = String(dateString);
+  
+  // Si no tiene guión, devolvemos tal cual (puede ser fecha legacy o texto)
+  if (!str.includes('-')) return str;
+
+  const parts = str.split('-');
+  // Si el formato no es YYYY-MM-DD (3 partes), devolvemos original
+  if (parts.length < 3) return str;
+
+  const [year, month, day] = parts;
+  // Validación básica para evitar undefined
+  if (!day || !month || !year) return str;
+
   return `${day}/${month}/${year.slice(2)}`;
 };
 
 // --- UTILIDAD: PARSEAR FECHA IMPORTACION (DD/MM/YY a YYYY-MM-DD) ---
+// CORREGIDO: Conversión a string antes de procesar
 const parseImportDate = (dateStr) => {
   if (!dateStr) return '';
-  // Limpiar espacios y dividir
-  const parts = dateStr.trim().split('/');
+  
+  const str = String(dateStr).trim();
+  const parts = str.split('/');
+  
   if (parts.length === 3) {
     const d = parts[0].padStart(2, '0');
     const m = parts[1].padStart(2, '0');
@@ -90,6 +108,7 @@ const parseImportDate = (dateStr) => {
     if (y.length === 2) y = '20' + y;
     return `${y}-${m}-${d}`;
   }
+  // Si no coincide formato, retornamos vacío para evitar datos corruptos
   return '';
 };
 
@@ -1242,10 +1261,11 @@ const Card = ({ item, isAdmin, onRequestDelete, onEditStart }) => {
                  <span className="font-bold">Cierre:</span> {formatDate(item.fechaCierre) || 'No definida'}
               </div>
            </div>
+           {/* Protección contra objetos no string en observaciones */}
            {item.observaciones && (
              <div className="bg-slate-50 p-2 rounded text-xs text-slate-600 italic border border-slate-100 flex gap-2">
                 <MessageSquare size={12} className="mt-0.5 text-slate-400 flex-shrink-0"/>
-                {item.observaciones}
+                {String(item.observaciones)}
              </div>
            )}
            {!item.observaciones && !item.fechaCierre && (

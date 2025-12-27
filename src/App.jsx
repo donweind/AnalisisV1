@@ -71,44 +71,29 @@ const generateUUID = () => {
 };
 
 // --- UTILIDAD: FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YY) ---
-// CORREGIDO: Más robusto para evitar errores si el dato no es string
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  
-  // Aseguramos que sea string
   const str = String(dateString);
-  
-  // Si no tiene guión, devolvemos tal cual (puede ser fecha legacy o texto)
   if (!str.includes('-')) return str;
-
   const parts = str.split('-');
-  // Si el formato no es YYYY-MM-DD (3 partes), devolvemos original
   if (parts.length < 3) return str;
-
   const [year, month, day] = parts;
-  // Validación básica para evitar undefined
   if (!day || !month || !year) return str;
-
   return `${day}/${month}/${year.slice(2)}`;
 };
 
 // --- UTILIDAD: PARSEAR FECHA IMPORTACION (DD/MM/YY a YYYY-MM-DD) ---
-// CORREGIDO: Conversión a string antes de procesar
 const parseImportDate = (dateStr) => {
   if (!dateStr) return '';
-  
   const str = String(dateStr).trim();
   const parts = str.split('/');
-  
   if (parts.length === 3) {
     const d = parts[0].padStart(2, '0');
     const m = parts[1].padStart(2, '0');
     let y = parts[2];
-    // Asumir siglo 2000 si solo tiene 2 dígitos
     if (y.length === 2) y = '20' + y;
     return `${y}-${m}-${d}`;
   }
-  // Si no coincide formato, retornamos vacío para evitar datos corruptos
   return '';
 };
 
@@ -516,7 +501,8 @@ export default function App() {
   // --- CREAR O ACTUALIZAR ---
   const handleSaveItem = (e) => {
     e.preventDefault();
-    if (!newItem.desc.trim()) {
+    // CORREGIDO: Verificación robusta de descripción (evita crash si es undefined o número)
+    if (!newItem.desc || !String(newItem.desc).trim()) {
       showNotification("⚠️ Descripción requerida", "error");
       return;
     }
@@ -528,8 +514,8 @@ export default function App() {
           return {
             ...item,
             ...newItem,
-            desc: newItem.desc.trim(),
-            codigoDoc: newItem.documento === 'SIN DOC' ? '' : newItem.codigoDoc
+            desc: String(newItem.desc).trim(), // Force string
+            codigoDoc: newItem.documento === 'SIN DOC' ? '' : String(newItem.codigoDoc || '')
           };
         }
         return item;
@@ -544,8 +530,8 @@ export default function App() {
         id: getNextId(newItem.tipo, newItem.zona),
         zona: newItem.zona,
         ...newItem,
-        desc: newItem.desc.trim(),
-        codigoDoc: newItem.documento === 'SIN DOC' ? '' : newItem.codigoDoc
+        desc: String(newItem.desc).trim(),
+        codigoDoc: newItem.documento === 'SIN DOC' ? '' : String(newItem.codigoDoc || '')
       };
       setData(prev => [...prev, itemToAdd]);
       setNewItem(prev => ({ ...prev, desc: '', codigoDoc: '', fechaCierre: '', observaciones: '' })); 
@@ -553,21 +539,22 @@ export default function App() {
     }
   };
 
+  // CORREGIDO: Inicialización robusta para evitar "uncontrolled input" y valores nulos
   const startEditingFull = (item) => {
     if (!isAdmin) return;
     setEditingItemUuid(item.uuid);
     setNewItem({
-      zona: item.zona,
-      tipo: item.tipo,
-      desc: item.desc,
+      zona: item.zona || 'Pope',
+      tipo: item.tipo || 'LDA',
+      desc: item.desc ? String(item.desc) : '', // Force string
       criticidad: item.criticidad || 'B',
       estado: item.estado || 'EN PROCESO',
       documento: item.documento || 'SIN DOC',
-      codigoDoc: item.codigoDoc || '',
-      fechaCierre: item.fechaCierre || '',
-      observaciones: item.observaciones || ''
+      codigoDoc: item.codigoDoc ? String(item.codigoDoc) : '', // Force string
+      fechaCierre: item.fechaCierre || '', 
+      observaciones: item.observaciones ? String(item.observaciones) : '' // Force string
     });
-    setActiveTab(item.zona);
+    setActiveTab(item.zona || 'Pope');
   };
 
   // SOLICITUD DE BORRADO (ABRE MODAL)
@@ -1091,7 +1078,7 @@ export default function App() {
                   </select>
                 </div>
                 <input type="text" className={`w-full text-xs border rounded p-2 ${newItem.documento === 'SIN DOC' ? 'opacity-50 bg-slate-100' : 'bg-white/80'}`}
-                    placeholder="Código documento..." disabled={newItem.documento === 'SIN DOC'} value={newItem.codigoDoc} onChange={e => setNewItem({...newItem, codigoDoc: e.target.value})}/>
+                    placeholder="Código documento..." disabled={newItem.documento === 'SIN DOC'} value={newItem.codigoDoc || ''} onChange={e => setNewItem({...newItem, codigoDoc: e.target.value})}/>
                 <textarea className="w-full text-xs border rounded p-2 h-16 bg-white/80 resize-none focus:ring-1 focus:ring-blue-500 outline-none mt-2" 
                   placeholder="Observaciones de cierre o detalles adicionales..." value={newItem.observaciones || ''} onChange={e => setNewItem({...newItem, observaciones: e.target.value})}/>
               </div>
@@ -1099,7 +1086,7 @@ export default function App() {
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Descripción Principal</label>
                 <textarea className="w-full text-sm border rounded p-3 h-24 bg-white/80 resize-none focus:ring-1 focus:ring-blue-500 outline-none" 
-                  placeholder="Descripción del hallazgo..." value={newItem.desc} onChange={e => setNewItem({...newItem, desc: e.target.value})}/>
+                  placeholder="Descripción del hallazgo..." value={newItem.desc || ''} onChange={e => setNewItem({...newItem, desc: e.target.value})}/>
               </div>
               
               <button type="submit" className={`w-full text-white font-bold py-3 rounded-lg text-sm transition-colors ${editingItemUuid ? 'bg-yellow-600 hover:bg-yellow-700 shadow-yellow-200' : 'bg-slate-900 hover:bg-black'}`}>

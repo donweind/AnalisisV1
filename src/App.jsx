@@ -317,8 +317,8 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
           <div className="flex justify-between items-center mb-4">
-             <h3 className="font-bold text-slate-700 flex items-center gap-2"><TrendingUp size={16}/> Diagrama de Pareto (Frecuencia por Zona)</h3>
-             <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded">Clic para filtrar detalles</span>
+              <h3 className="font-bold text-slate-700 flex items-center gap-2"><TrendingUp size={16}/> Diagrama de Pareto (Frecuencia por Zona)</h3>
+              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded">Clic para filtrar detalles</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -631,11 +631,29 @@ export default function App() {
            const id = parseInt(codeMatch[2], 10);
            const desc = parts[1] || '';
            const criticidad = parts[2] ? parts[2].toUpperCase() : 'B';
-           const fechaCierre = parseImportDate(parts[3]); // Convierte DD/MM/YY a YYYY-MM-DD
+           // Si la fecha es solo año (ej: 2024), se mantiene como string. Si es fecha completa con /, se parsea.
+           let fechaCierre = parts[3] || '';
+           if (fechaCierre.includes('/')) {
+              fechaCierre = parseImportDate(fechaCierre);
+           }
+           
            const estado = parts[4] ? parts[4].toUpperCase() : 'EN PROCESO';
            const documento = parts[5] ? parts[5].toUpperCase() : 'SIN DOC';
-           const codigoDoc = parts[6] || '';
-           const observaciones = parts[7] || '';
+           
+           let codigoDoc = parts[6] || '';
+           let observaciones = parts[7] || '';
+
+           // --- CORRECCIÓN INTELIGENTE PARA COLUMNAS DESPLAZADAS ---
+           // Si es SIN DOC, usualmente no hay código. Si la columna 6 tiene texto largo, es probable que sea la observación.
+           if (documento === 'SIN DOC') {
+             // Si observaciones está vacío Y codigoDoc tiene texto (y parece una frase larga > 15 chars), asumimos desplazamiento
+             if (!observaciones && codigoDoc.length > 15) {
+               observaciones = codigoDoc;
+               codigoDoc = '';
+             }
+             // Asegurar que codigoDoc esté vacío si es SIN DOC
+             if (documento === 'SIN DOC') codigoDoc = ''; 
+           }
 
            newItems.push({
              uuid: generateUUID(),
@@ -1071,7 +1089,8 @@ export default function App() {
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Cierre / Detalles</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="date" className="text-xs border rounded p-2 bg-white/80"
+                  {/* CAMBIO: Input type="text" para permitir solo Año (ej: 2025) o fecha completa */}
+                  <input type="text" className="text-xs border rounded p-2 bg-white/80" placeholder="YYYY-MM-DD o Año (2025)"
                     value={newItem.fechaCierre || ''} onChange={e => setNewItem({...newItem, fechaCierre: e.target.value})}/>
                   <select className="text-xs border rounded p-2 bg-white/80" value={newItem.documento} onChange={e => setNewItem({...newItem, documento: e.target.value})}>
                     {DOC_OPTS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -1096,7 +1115,7 @@ export default function App() {
             
             {!editingItemUuid && (
               <div className="mt-6 pt-6 border-t border-slate-100">
-                 <button onClick={renumberData} className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 border border-dashed rounded hover:bg-slate-50">Re-ordenar IDs</button>
+                  <button onClick={renumberData} className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 border border-dashed rounded hover:bg-slate-50">Re-ordenar IDs</button>
               </div>
             )}
           </div>

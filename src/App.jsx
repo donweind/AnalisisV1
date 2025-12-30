@@ -1,20 +1,20 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, ComposedChart, Line, AreaChart, Area
 } from 'recharts';
-import { 
-  PlusCircle, Download, Trash2, Activity, MapPin, 
+import {
+  PlusCircle, Download, Trash2, Activity, MapPin,
   AlertTriangle, CheckCircle, BarChart2, X, Search, Upload, Save, Check, RefreshCw, List,
   FileText, Clock, AlertOctagon, Hash, Lock, Key, ClipboardList, Shield, Eye, LogOut, User,
-  Palette, Layout, ChevronRight, ArrowRight, Sun, Moon, Coffee, Leaf, Filter, TrendingUp, 
+  Palette, Layout, ChevronRight, ArrowRight, Sun, Moon, Coffee, Leaf, Filter, TrendingUp,
   PieChart as PieIcon, FileSpreadsheet, Wand2, Droplet, Anchor, Wind, Mountain, Edit3, Undo2,
-  MousePointerClick, AlertCircle, Calendar, MessageSquare
+  MousePointerClick, AlertCircle, Calendar, MessageSquare, Target
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN FIJA ---
 const ZONAS = ['Pope', 'Secado', 'Formacion', 'Clarificacion'];
-const TIPOS = ['LDA', 'FC']; 
+const TIPOS = ['LDA', 'FC'];
 
 // --- OPCIONES ---
 const CRITICIDAD_OPTS = ['A', 'B', 'C'];
@@ -29,12 +29,12 @@ const PALETTES = [
     id: 'poseidon',
     name: 'Poseidon Light',
     icon: <Anchor size={16}/>,
-    colors: { 
-      bgColor: '#DEEFE7',      
-      headerColor: '#FFFFFF',  
-      titleColor: '#002333',   
-      accentColor: '#024554',  
-      tabColor: '#002333'      
+    colors: {
+      bgColor: '#DEEFE7',
+      headerColor: '#FFFFFF',
+      titleColor: '#002333',
+      accentColor: '#024554',
+      tabColor: '#002333'
     }
   },
   {
@@ -65,8 +65,8 @@ const PALETTES = [
 
 // --- UTILIDAD: GENERAR UUID ---
 const generateUUID = () => {
-  return typeof crypto !== 'undefined' && crypto.randomUUID 
-    ? crypto.randomUUID() 
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
     : Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
@@ -102,19 +102,37 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
   const [filterZone, setFilterZone] = useState('TODAS');
   const [filterStatus, setFilterStatus] = useState('TODOS');
   const [filterCrit, setFilterCrit] = useState('TODAS');
+  const [filterType, setFilterType] = useState('TODOS'); // NUEVO ESTADO PARA TIPO
 
   const filteredData = useMemo(() => {
     return data.filter(item => {
       const matchZone = filterZone === 'TODAS' || item.zona === filterZone;
       const matchStatus = filterStatus === 'TODOS' || item.estado === filterStatus;
       const matchCrit = filterCrit === 'TODAS' || item.criticidad === filterCrit;
-      return matchZone && matchStatus && matchCrit;
+      const matchType = filterType === 'TODOS' || item.tipo === filterType; // NUEVO FILTRO
+      return matchZone && matchStatus && matchCrit && matchType;
+    });
+  }, [data, filterZone, filterStatus, filterCrit, filterType]);
+
+  const totalItems = filteredData.length;
+  // Calculamos totales basados en DATA FILTRADA para los KPIs dinámicos, 
+  // O usamos data global para mostrar el universo total si se prefiere. 
+  // En este caso, haremos que las tarjetas superiores reflejen el estado GLOBAL (o filtrado parcialmente)
+  // para permitir que funcionen como botones de filtro.
+  
+  // Para las tarjetas interactivas, calculamos el total del universo actual (respetando otros filtros)
+  const contextData = useMemo(() => {
+    return data.filter(item => {
+        const matchZone = filterZone === 'TODAS' || item.zona === filterZone;
+        const matchStatus = filterStatus === 'TODOS' || item.estado === filterStatus;
+        const matchCrit = filterCrit === 'TODAS' || item.criticidad === filterCrit;
+        return matchZone && matchStatus && matchCrit;
     });
   }, [data, filterZone, filterStatus, filterCrit]);
 
-  const totalItems = filteredData.length;
-  const totalLDA = filteredData.filter(d => d.tipo === 'LDA').length;
-  const totalFC = filteredData.filter(d => d.tipo === 'FC').length;
+  const totalLDA = contextData.filter(d => d.tipo === 'LDA').length;
+  const totalFC = contextData.filter(d => d.tipo === 'FC').length;
+  
   const totalEjecutados = filteredData.filter(d => d.estado === 'EJECUTADO').length;
   const percentEjecutado = totalItems > 0 ? Math.round((totalEjecutados / totalItems) * 100) : 0;
 
@@ -142,7 +160,7 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
       name: `Criticidad ${c}`,
       EJECUTADO: subset.filter(d => d.estado === 'EJECUTADO').length,
       PROCESO: subset.filter(d => d.estado === 'EN PROCESO').length,
-      PENDIENTE: subset.filter(d => d.estado === 'PENDIENTE').length, 
+      PENDIENTE: subset.filter(d => d.estado === 'PENDIENTE').length,
       ATRASADO: subset.filter(d => d.estado === 'ATRASADO').length
     };
   });
@@ -180,6 +198,14 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
     }
   };
 
+  const toggleTypeFilter = (type) => {
+    if (filterType === type) {
+      setFilterType('TODOS');
+    } else {
+      setFilterType(type);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-100 z-50 flex flex-col overflow-hidden animate-fade-in text-slate-800">
       <div className="bg-white p-4 border-b border-slate-200 flex justify-between items-center shadow-sm">
@@ -196,6 +222,10 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
           <div className="flex items-center gap-2 text-slate-500 text-sm font-bold uppercase mr-4">
             <Filter size={16}/> Filtros Activos:
           </div>
+          <select className="border p-2 rounded text-sm bg-slate-50 font-medium" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="TODOS">Todos los Tipos</option>
+            {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
           <select className="border p-2 rounded text-sm bg-slate-50" value={filterZone} onChange={e => setFilterZone(e.target.value)}>
             <option value="TODAS">Todas las Zonas</option>
             {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
@@ -208,6 +238,16 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
             <option value="TODAS">Todas las Criticidades</option>
             {CRITICIDAD_OPTS.map(c => <option key={c} value={c}>Criticidad {c}</option>)}
           </select>
+          
+          {(filterZone !== 'TODAS' || filterStatus !== 'TODOS' || filterCrit !== 'TODAS' || filterType !== 'TODOS') && (
+            <button 
+              onClick={() => { setFilterZone('TODAS'); setFilterStatus('TODOS'); setFilterCrit('TODAS'); setFilterType('TODOS'); }}
+              className="px-3 py-1 text-xs bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-colors flex items-center gap-1"
+            >
+              <X size={12}/> Limpiar
+            </button>
+          )}
+
           <div className="ml-auto text-xs text-slate-400">Mostrando {totalItems} registros</div>
         </div>
 
@@ -220,20 +260,34 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
             <div className="text-4xl font-black text-slate-800">{totalItems}</div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-[#86efac] hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
+          <div 
+            onClick={() => toggleTypeFilter('LDA')}
+            className={`bg-white p-6 rounded-xl shadow-lg border-t-4 border-[#86efac] hover:scale-105 transition-all duration-300 cursor-pointer group relative overflow-hidden ring-offset-2 ${filterType === 'LDA' ? 'ring-4 ring-[#86efac] scale-105' : 'hover:ring-2 hover:ring-[#86efac]/50'}`}
+          >
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
               <MapPin size={64} className="text-green-500"/>
             </div>
-            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider">Total LDA</div>
+            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider flex justify-between">
+              Total LDA
+              {filterType === 'LDA' && <CheckCircle size={14} className="text-green-600"/>}
+            </div>
             <div className="text-4xl font-black text-slate-800">{totalLDA}</div>
+            <div className="text-[10px] text-slate-400 mt-2 font-medium">Clic para filtrar solo LDA</div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-[#fef08a] hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
+          <div 
+            onClick={() => toggleTypeFilter('FC')}
+            className={`bg-white p-6 rounded-xl shadow-lg border-t-4 border-[#fef08a] hover:scale-105 transition-all duration-300 cursor-pointer group relative overflow-hidden ring-offset-2 ${filterType === 'FC' ? 'ring-4 ring-[#fef08a] scale-105' : 'hover:ring-2 hover:ring-[#fef08a]/50'}`}
+          >
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
               <AlertCircle size={64} className="text-yellow-500"/>
             </div>
-            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider">Total FC</div>
+            <div className="text-slate-500 text-xs font-bold uppercase mb-1 tracking-wider flex justify-between">
+              Total FC
+              {filterType === 'FC' && <CheckCircle size={14} className="text-yellow-600"/>}
+            </div>
             <div className="text-4xl font-black text-slate-800">{totalFC}</div>
+            <div className="text-[10px] text-slate-400 mt-2 font-medium">Clic para filtrar solo FC</div>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-green-500 hover:scale-105 transition-transform duration-300 cursor-default group relative overflow-hidden">
@@ -249,7 +303,10 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
         </div>
 
         <div className="mb-6">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Avance por Criticidad</h3>
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            Avance por Criticidad 
+            {filterType !== 'TODOS' && <span className="bg-slate-800 text-white text-[10px] px-2 py-0.5 rounded">Filtro: {filterType}</span>}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white p-5 rounded-xl shadow-sm border border-red-100 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-end mb-2">
@@ -283,14 +340,35 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
             </div>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={zoneChartData} onClick={handleChartClick} style={{cursor: 'pointer'}}>
+                <BarChart data={zoneChartData} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                   <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false}/>
                   <YAxis fontSize={12} axisLine={false} tickLine={false}/>
                   <Tooltip cursor={{fill: 'rgba(0,0,0,0.05)'}}/>
                   <Legend />
-                  <Bar dataKey="LDA" stackId="a" fill="#86efac" name="LDA" radius={[0,0,4,4]}/>
-                  <Bar dataKey="FC" stackId="a" fill="#fef08a" name="FC" radius={[4,4,0,0]}/>
+                  <Bar 
+                    dataKey="LDA" 
+                    stackId="a" 
+                    fill={filterType === 'FC' ? '#dcfce7' : '#86efac'} // Desaturar si no está seleccionado
+                    name="LDA" 
+                    radius={[0,0,4,4]}
+                    onClick={(data, index, e) => {
+                         // Evita conflictos de eventos si es posible, aunque Recharts maneja esto internamente
+                         setFilterType('LDA');
+                    }}
+                    style={{ cursor: 'pointer', opacity: filterType === 'FC' ? 0.3 : 1 }}
+                  />
+                  <Bar 
+                    dataKey="FC" 
+                    stackId="a" 
+                    fill={filterType === 'LDA' ? '#fef9c3' : '#fef08a'} 
+                    name="FC" 
+                    radius={[4,4,0,0]}
+                    onClick={(data, index, e) => {
+                         setFilterType('FC');
+                    }}
+                    style={{ cursor: 'pointer', opacity: filterType === 'LDA' ? 0.3 : 1 }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -410,7 +488,7 @@ const AdvancedDashboard = ({ data, onClose, isAdmin, onRequestDelete, onEditStar
 
 export default function App() {
   const [data, setData] = useState([]);
-  const [appMode, setAppMode] = useState('cover'); 
+  const [appMode, setAppMode] = useState('cover');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [showThemeModal, setShowThemeModal] = useState(false);
@@ -419,7 +497,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Pope');
   const [showStats, setShowStats] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [searchTerm, setSearchTerm] = useState(''); 
+  const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef(null);
 
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -434,7 +512,7 @@ export default function App() {
   const [showClearModal, setShowClearModal] = useState(false);
 
   // FORMULARIO Y EDICIÓN
-  const [editingItemUuid, setEditingItemUuid] = useState(null); 
+  const [editingItemUuid, setEditingItemUuid] = useState(null);
   const [newItem, setNewItem] = useState({
     zona: 'Pope',
     tipo: 'LDA',
@@ -472,7 +550,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setAppMode('cover'); 
+    setAppMode('cover');
     setShowStats(false);
     setShowThemeModal(false);
     resetForm();
@@ -534,7 +612,7 @@ export default function App() {
         codigoDoc: newItem.documento === 'SIN DOC' ? '' : String(newItem.codigoDoc || '')
       };
       setData(prev => [...prev, itemToAdd]);
-      setNewItem(prev => ({ ...prev, desc: '', codigoDoc: '', fechaCierre: '', observaciones: '' })); 
+      setNewItem(prev => ({ ...prev, desc: '', codigoDoc: '', fechaCierre: '', observaciones: '' }));
       showNotification(`✅ Registro agregado`);
     }
   };
@@ -551,7 +629,7 @@ export default function App() {
       estado: item.estado || 'EN PROCESO',
       documento: item.documento || 'SIN DOC',
       codigoDoc: item.codigoDoc ? String(item.codigoDoc) : '', // Force string
-      fechaCierre: item.fechaCierre || '', 
+      fechaCierre: item.fechaCierre || '',
       observaciones: item.observaciones ? String(item.observaciones) : '' // Force string
     });
     setActiveTab(item.zona || 'Pope');
@@ -591,7 +669,7 @@ export default function App() {
           if (ZONE_ORDER[a.zona] !== ZONE_ORDER[b.zona]) return ZONE_ORDER[a.zona] - ZONE_ORDER[b.zona];
           return a.id - b.id;
         })
-        .map((item, index) => ({ ...item, id: index + 1 })); 
+        .map((item, index) => ({ ...item, id: index + 1 }));
     };
     setData([...processType('LDA'), ...processType('FC')]);
     showNotification("🔄 Renumerado");
@@ -619,7 +697,7 @@ export default function App() {
 
       // Necesitamos al menos el código para procesar
       if (parts.length > 0) {
-        const codigoRaw = parts[0] || ''; 
+        const codigoRaw = parts[0] || '';
         // Parsear Código: LDA 1 -> Tipo: LDA, ID: 1
         const codeMatch = codigoRaw.match(/^(LDA|FC)[\s\-\.]*(\d+)/i);
         
@@ -634,7 +712,7 @@ export default function App() {
            // Si la fecha es solo año (ej: 2024), se mantiene como string. Si es fecha completa con /, se parsea.
            let fechaCierre = parts[3] || '';
            if (fechaCierre.includes('/')) {
-              fechaCierre = parseImportDate(fechaCierre);
+             fechaCierre = parseImportDate(fechaCierre);
            }
            
            const estado = parts[4] ? parts[4].toUpperCase() : 'EN PROCESO';
@@ -652,7 +730,7 @@ export default function App() {
                codigoDoc = '';
              }
              // Asegurar que codigoDoc esté vacío si es SIN DOC
-             if (documento === 'SIN DOC') codigoDoc = ''; 
+             if (documento === 'SIN DOC') codigoDoc = '';
            }
 
            newItems.push({
@@ -1262,10 +1340,10 @@ const Card = ({ item, isAdmin, onRequestDelete, onEditStart }) => {
       {expanded && (
         <div className="mt-4 pt-3 border-t border-slate-100 animate-fade-in">
            <div className="grid grid-cols-2 gap-4 text-xs text-slate-500 mb-2">
-              <div className="flex items-center gap-2">
-                 <Calendar size={12} className="text-slate-400"/> 
-                 <span className="font-bold">Cierre:</span> {formatDate(item.fechaCierre) || 'No definida'}
-              </div>
+             <div className="flex items-center gap-2">
+                <Calendar size={12} className="text-slate-400"/> 
+                <span className="font-bold">Cierre:</span> {formatDate(item.fechaCierre) || 'No definida'}
+             </div>
            </div>
            {/* Protección contra objetos no string en observaciones */}
            {item.observaciones && (
